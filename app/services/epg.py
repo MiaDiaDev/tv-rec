@@ -39,7 +39,17 @@ class EPGService:
                 return False
 
             generated_at = datetime.fromisoformat(generated_at_str)
-            age = datetime.now() - generated_at
+
+            # Use timezone-aware now for comparison
+            from datetime import timezone
+            if generated_at.tzinfo is None:
+                # If stored time is naive, assume local
+                now = datetime.now()
+            else:
+                # If stored time is aware, use UTC now
+                now = datetime.now(tz=timezone.utc)
+
+            age = now - generated_at
             max_age = timedelta(hours=self.max_age_hours)
 
             return age < max_age
@@ -176,8 +186,10 @@ class EPGService:
 
         programs_data = epg_data.get('programs', [])
 
-        # Filter for today
-        today = datetime.now().date()
+        # Filter for today (use CET for German TV)
+        from datetime import timezone
+        cet = timezone(timedelta(hours=1))
+        today = datetime.now(tz=cet).date()
         programs = []
 
         for program_data in programs_data:
@@ -214,7 +226,8 @@ class EPGService:
         Returns:
             List of currently airing TVProgram objects
         """
-        now = datetime.now()
+        from datetime import timezone
+        now = datetime.now(tz=timezone.utc)
         all_programs = self.get_programs_today(channels)
 
         # Filter for programs airing now
@@ -238,8 +251,10 @@ class EPGService:
         Returns:
             List of TVProgram objects for tonight
         """
-        today = datetime.now().date()
-        tonight_start = datetime.combine(today, datetime.min.time()) + timedelta(hours=18)
+        from datetime import timezone
+        cet = timezone(timedelta(hours=1))  # CET baseline
+        today = datetime.now(tz=cet).date()
+        tonight_start = datetime.combine(today, datetime.min.time(), tzinfo=cet) + timedelta(hours=18)
 
         all_programs = self.get_programs_today(channels)
 

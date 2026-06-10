@@ -72,7 +72,7 @@ def get_recommendations_ui(
     Args:
         mood: User's mood
         genres: Selected genres
-        content_type: Content type filter
+        content_type: Content type filter (German labels)
         include_live: Include live TV
         include_mediathek: Include Mediathek
 
@@ -80,11 +80,19 @@ def get_recommendations_ui(
         HTML formatted recommendations
     """
     try:
+        # Map German UI labels to internal values
+        content_type_map = {
+            "Alle": None,
+            "Film": "movie",
+            "Serie": "show"
+        }
+        internal_content_type = content_type_map.get(content_type)
+
         # Create preferences
         preferences = UserPreferences(
             mood=mood,
             genres=genres if genres else [],
-            content_type=content_type if content_type != "Alle" else None
+            content_type=internal_content_type
         )
 
         # Get recommendations
@@ -115,7 +123,7 @@ def create_ui():
     # Available options
     moods = list(MOOD_TO_GENRES.keys())
     genres = sorted(list(STANDARD_GENRES))
-    content_types = ["Alle", "movie", "show"]
+    content_types = ["Alle", "Film", "Serie"]
 
     with gr.Blocks(title="German TV Recommender", theme=gr.themes.Soft()) as demo:
         gr.Markdown(

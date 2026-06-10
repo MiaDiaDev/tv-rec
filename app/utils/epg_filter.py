@@ -45,24 +45,39 @@ def normalize_channel_name(xmltv_channel: str) -> Optional[str]:
 
 def parse_xmltv_time(time_str: str) -> Optional[datetime]:
     """
-    Parse XMLTV time format.
+    Parse XMLTV time format to timezone-aware datetime.
 
     Args:
         time_str: Time string in format "YYYYMMDDHHmmss +ZZZZ"
 
     Returns:
-        datetime object or None
+        Timezone-aware datetime object or None
     """
     try:
+        from datetime import timezone
+
         # Format: 20241018200000 +0200
         if '+' in time_str or '-' in time_str:
             parts = time_str.split()
             time_part = parts[0]
+            offset_part = parts[1] if len(parts) > 1 else '+0000'
+
+            # Parse base datetime
             dt = datetime.strptime(time_part, "%Y%m%d%H%M%S")
-            return dt
+
+            # Parse timezone offset
+            sign = 1 if offset_part[0] == '+' else -1
+            hours = int(offset_part[1:3])
+            minutes = int(offset_part[3:5])
+            offset = timezone(timedelta(hours=sign*hours, minutes=sign*minutes))
+
+            # Make timezone-aware
+            return dt.replace(tzinfo=offset)
         else:
+            # No timezone info, assume CET (+0100/+0200)
             dt = datetime.strptime(time_str, "%Y%m%d%H%M%S")
-            return dt
+            cet = timezone(timedelta(hours=1))
+            return dt.replace(tzinfo=cet)
     except Exception as e:
         print(f"Time parse error for '{time_str}': {e}")
         return None
@@ -102,8 +117,10 @@ def download_and_filter_epg(
         print(f"Error parsing XML: {e}")
         return {"error": str(e)}
 
-    # Calculate date range
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Calculate date range (timezone-aware for CET/CEST)
+    from datetime import timezone
+    cet = timezone(timedelta(hours=1))  # CET baseline, XMLTV times include actual offset
+    today = datetime.now(tz=cet).replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = today + timedelta(days=days_ahead + 1)
 
     print(f"Filtering programs from {today.date()} to {end_date.date()}...")
@@ -171,8 +188,9 @@ def download_and_filter_epg(
             continue  # Skip problematic programs
 
     # Save to JSON
+    from datetime import timezone
     output_data = {
-        'generated_at': datetime.now().isoformat(),
+        'generated_at': datetime.now(tz=timezone.utc).isoformat(),
         'channels': sorted(list(channels_found)),
         'program_count': len(filtered_programs),
         'date_range': {
