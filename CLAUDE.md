@@ -39,7 +39,7 @@ A web application that recommends German TV content based on user preferences. T
 - **Caching:** Redis for API response caching
 - **APIs Used:**
   - MediathekViewWeb API for ARD/ZDF Mediathek on-demand content
-  - TVprofil.net XMLTV files for live EPG schedules
+  - XMLTV EPG files (epgshare01.online) for live EPG schedules
 
 ### Frontend
 - **Framework:** Gradio (Python-based UI framework)
@@ -95,13 +95,18 @@ A web application that recommends German TV content based on user preferences. T
 
 **Caching Strategy:** Cache results for 1-2 hours
 
-### 2. TVprofil.net XMLTV (Live EPG Data) - **FILTERED APPROACH**
+### 2. XMLTV EPG (Live EPG Data) - **FILTERED APPROACH**
 
-**Endpoint:** `https://tvprofil.net/xmltv/epg_tvprofil.net.xml`
-**Format:** XMLTV (XML)
+**Endpoint:** `https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz` (configurable via `XMLTV_EPG_URL`)
+**Format:** XMLTV (XML), gzip-compressed (`.xml.gz` handled automatically)
 **Authentication:** None required
-**Coverage:** 5000+ channels (full file ~100MB)
+**Coverage:** German channels (DE1 file), updated daily
 **Implementation:** **Filtered to 10 main German channels only**
+
+> **History:** The original source `https://tvprofil.net/xmltv/epg_tvprofil.net.xml`
+> started returning 404 in 2026 and was replaced by epgshare01.online.
+> The downloader is source-agnostic: any standard XMLTV file (plain or gzip)
+> works via the `XMLTV_EPG_URL` environment variable.
 
 **Filtered Channels (10 Main Stations):**
 - **Public:** Das Erste (ARD), ZDF, 3sat, arte
@@ -148,10 +153,10 @@ A web application that recommends German TV content based on user preferences. T
 - Content is copyrighted by broadcasters
 - Respect geo-restrictions (most content Germany/Austria/Switzerland only)
 
-**TVprofil.net:**
-- Free for personal/home use
-- Commercial use requires permission (contact tvprofil@tvprofil.com)
-- Must use provided XMLTV URLs (no website scraping)
+**epgshare01.online:**
+- Free EPG for legal/personal use
+- No authentication required; be considerate with download frequency
+  (app downloads at most once per 6 hours)
 
 ## Data Processing Requirements
 
@@ -323,7 +328,7 @@ REDIS_DB=0
 
 # API Endpoints
 MEDIATHEK_API_URL=https://mediathekviewweb.de/api/query
-XMLTV_EPG_URL=https://tvprofil.net/xmltv/epg_tvprofil.net.xml
+XMLTV_EPG_URL=https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz
 
 # Cache TTLs (seconds)
 EPG_CACHE_TTL=3600
@@ -437,7 +442,8 @@ volumes:
 ## Resources & Documentation
 
 - **MediathekViewWeb API:** https://mediathekviewweb.de/
-- **TVprofil.net:** https://tvprofil.net/xmltv/
+- **epgshare01.online:** https://epgshare01.online/ (current EPG source)
+- **TVprofil.net:** https://tvprofil.net/xmltv/ (former EPG source, URL dead since 2026)
 - **XMLTV Format:** http://wiki.xmltv.org/index.php/XMLTVFormat
 - **Gradio Docs:** https://www.gradio.app/docs/
 - **FastAPI Docs:** https://fastapi.tiangolo.com/

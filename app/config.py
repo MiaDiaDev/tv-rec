@@ -21,7 +21,7 @@ class Config:
     )
     XMLTV_EPG_URL = os.getenv(
         "XMLTV_EPG_URL",
-        "https://tvprofil.net/xmltv/epg_tvprofil.net.xml"
+        "https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz"
     )
 
     # Cache TTLs (seconds)

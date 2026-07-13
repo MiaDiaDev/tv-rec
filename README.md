@@ -35,7 +35,7 @@ Eine Web-Anwendung, die deutsche TV-Inhalte basierend auf Benutzerpräferenzen e
 - **Backend**: FastAPI (Python)
 - **Frontend**: Gradio
 - **Caching**: Redis
-- **APIs**: MediathekViewWeb API (On-Demand), TVprofil.net XMLTV (Live TV mit Filterung)
+- **APIs**: MediathekViewWeb API (On-Demand), epgshare01.online XMLTV (Live TV mit Filterung)
 
 ## Schnellstart
 
@@ -174,16 +174,19 @@ pytest tests/
 ## Datenquellen
 
 - **MediathekViewWeb API**: On-Demand Content von ARD, ZDF, arte, 3sat und regionalen Sendern
-- **TVprofil.net XMLTV**: Live EPG-Daten, gefiltert auf 10 Hauptsender:
+- **epgshare01.online XMLTV**: Live EPG-Daten (Datei `DE1`), gefiltert auf 10 Hauptsender:
   - Öffentlich-rechtlich: Das Erste (ARD), ZDF, 3sat, arte
   - Privatsender: RTL, ProSieben, Sat.1, VOX, RTL II, Kabel Eins
 
+  Die EPG-Quelle ist über `XMLTV_EPG_URL` in `.env` konfigurierbar; jede
+  Standard-XMLTV-Datei (auch gzip-komprimiert) funktioniert.
+
 ### EPG-System (Optimiert)
 
-Statt der vollständigen 100MB XMLTV-Datei (5000+ Kanäle) nutzt die App ein **gefiltertes System**:
+Statt der vollständigen XMLTV-Datei (alle Kanäle) nutzt die App ein **gefiltertes System**:
 
 - **Erstdownload**: Einmalig beim ersten Start (~30-60 Sekunden)
-- **Gefiltertes EPG**: Nur 10 Hauptsender, ~1-3MB statt 100MB
+- **Gefiltertes EPG**: Nur 10 Hauptsender, ~1-3MB
 - **Automatische Updates**: Alle 6 Stunden
 - **Manuelle Aktualisierung**: `python scripts/update_epg.py`
 - **Persistenz**: EPG-Daten bleiben zwischen Container-Neustarts erhalten
