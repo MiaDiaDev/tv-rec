@@ -19,10 +19,17 @@ class Config:
         "MEDIATHEK_API_URL",
         "https://mediathekviewweb.de/api/query"
     )
-    XMLTV_EPG_URL = os.getenv(
-        "XMLTV_EPG_URL",
-        "https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz"
-    )
+    _DEFAULT_EPG_URL = "https://epgshare01.online/epgshare01/epg_ripper_DE1.xml.gz"
+    # TVprofil URL is dead (404) since 2026; override stale .env files
+    _DEAD_EPG_URLS = {"https://tvprofil.net/xmltv/epg_tvprofil.net.xml"}
+
+    XMLTV_EPG_URL = os.getenv("XMLTV_EPG_URL", _DEFAULT_EPG_URL)
+    if XMLTV_EPG_URL in _DEAD_EPG_URLS:
+        print(
+            f"Hinweis: XMLTV_EPG_URL in .env zeigt auf eine tote Quelle "
+            f"({XMLTV_EPG_URL}), verwende stattdessen {_DEFAULT_EPG_URL}"
+        )
+        XMLTV_EPG_URL = _DEFAULT_EPG_URL
 
     # Cache TTLs (seconds)
     EPG_CACHE_TTL = int(os.getenv("EPG_CACHE_TTL", "3600"))
