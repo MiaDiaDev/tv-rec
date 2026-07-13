@@ -1,5 +1,6 @@
 """EPG filter utility to create lightweight filtered EPG data."""
 
+import gzip
 import requests
 import xml.etree.ElementTree as ET
 import json
@@ -33,14 +34,22 @@ def normalize_channel_name(xmltv_channel: str) -> Optional[str]:
     Returns:
         Standard channel name or None if not in our list
     """
-    xmltv_lower = xmltv_channel.lower()
+    # Normalize: lowercase, dots/underscores to spaces so IDs like
+    # "Das.Erste.de" or "das_erste" match the same patterns
+    xmltv_lower = xmltv_channel.lower().replace('.', ' ').replace('_', ' ')
+
+    # Pick the longest matching pattern so "RTL ZWEI" wins over "RTL"
+    best_match = None
+    best_length = 0
 
     for standard_name, patterns in CHANNEL_MAPPING.items():
         for pattern in patterns:
-            if pattern.lower() in xmltv_lower:
-                return standard_name
+            pattern_lower = pattern.lower().replace('.', ' ').replace('_', ' ')
+            if pattern_lower in xmltv_lower and len(pattern_lower) > best_length:
+                best_match = standard_name
+                best_length = len(pattern_lower)
 
-    return None
+    return best_match
 
 
 def parse_xmltv_time(time_str: str) -> Optional[datetime]:
@@ -100,19 +109,34 @@ def download_and_filter_epg(
         Dictionary with statistics about the filtering
     """
     print(f"Downloading XMLTV from {xmltv_url}...")
-    print("This may take 30-60 seconds for a ~100MB file...")
+    print("This may take 30-60 seconds for large files...")
 
     try:
-        response = requests.get(xmltv_url, timeout=120)
+        response = requests.get(
+            xmltv_url,
+            timeout=120,
+            headers={'User-Agent': 'Mozilla/5.0 (German TV Recommender; personal use)'}
+        )
         response.raise_for_status()
         print(f"Downloaded {len(response.content) / 1024 / 1024:.1f} MB")
     except requests.RequestException as e:
         print(f"Error downloading XMLTV: {e}")
         return {"error": str(e)}
 
+    # Decompress if gzip (magic bytes 1f 8b), e.g. .xml.gz sources
+    xml_bytes = response.content
+    if xml_bytes[:2] == b'\x1f\x8b':
+        print("Decompressing gzip...")
+        try:
+            xml_bytes = gzip.decompress(xml_bytes)
+            print(f"Decompressed to {len(xml_bytes) / 1024 / 1024:.1f} MB")
+        except OSError as e:
+            print(f"Error decompressing gzip: {e}")
+            return {"error": f"gzip decompression failed: {e}"}
+
     print("Parsing XML...")
     try:
-        root = ET.fromstring(response.content)
+        root = ET.fromstring(xml_bytes)
     except ET.ParseError as e:
         print(f"Error parsing XML: {e}")
         return {"error": str(e)}
@@ -125,6 +149,15 @@ def download_and_filter_epg(
 
     print(f"Filtering programs from {today.date()} to {end_date.date()}...")
 
+    # Build channel id -> display names map from <channel> elements,
+    # so we can match either the raw id or the human-readable name
+    channel_display_names = {}
+    for channel_elem in root.findall('channel'):
+        ch_id = channel_elem.get('id', '')
+        names = [e.text for e in channel_elem.findall('display-name') if e.text]
+        if ch_id:
+            channel_display_names[ch_id] = names
+
     filtered_programs = []
     total_programs = 0
     channels_found = set()
@@ -133,9 +166,15 @@ def download_and_filter_epg(
         total_programs += 1
 
         try:
-            # Get channel
+            # Get channel: try the id first, then its display names
             xmltv_channel = programme_elem.get('channel', '')
             standard_channel = normalize_channel_name(xmltv_channel)
+
+            if not standard_channel:
+                for display_name in channel_display_names.get(xmltv_channel, []):
+                    standard_channel = normalize_channel_name(display_name)
+                    if standard_channel:
+                        break
 
             if not standard_channel:
                 continue  # Skip channels not in our list
