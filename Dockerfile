@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Unbuffered stdout so print() lines appear in docker logs immediately
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY requirements.txt .
